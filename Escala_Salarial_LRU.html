@@ -353,6 +353,41 @@
     margin-bottom:10px;
   }
 
+  .resumen-compara{
+    display:flex;
+    align-items:center;
+    gap:18px;
+    background:var(--paper-soft);
+    border:1px solid var(--rule);
+    padding:14px 18px;
+    margin-bottom:14px;
+  }
+  .resumen-col{ flex:1; }
+  .resumen-label{
+    font-family:'Inter',Arial,sans-serif;
+    font-size:10.5px;
+    letter-spacing:.5px;
+    text-transform:uppercase;
+    color:var(--muted);
+    font-weight:600;
+    margin-bottom:4px;
+  }
+  .resumen-valor{
+    font-family:'Playfair Display',Georgia,serif;
+    font-size:20px;
+    font-weight:600;
+    color:var(--navy);
+  }
+  .resumen-valor.gold{ color:var(--gold-deep); }
+  .resumen-flecha{
+    font-family:'Inter',Arial,sans-serif;
+    font-size:12px;
+    font-weight:700;
+    color:var(--muted);
+    text-transform:uppercase;
+  }
+  .market-col{ color:var(--gold-deep); font-weight:600; }
+
   .propuesta-box{
     background:var(--gold-soft);
     border:1px solid var(--gold);
@@ -805,7 +840,7 @@ function renderMarket(){
 
     let rowsHtml = '';
     if(records.length === 0){
-      rowsHtml = `<tr><td colspan="5" style="color:var(--muted);font-style:italic;">Aún no hay registros para este puesto.</td></tr>`;
+      rowsHtml = `<tr><td colspan="4" style="color:var(--muted);font-style:italic;">Aún no hay registros para este puesto.</td></tr>`;
     } else {
       records
         .sort((a,b)=> (b.sueldoTotal||0) - (a.sueldoTotal||0))
@@ -819,28 +854,44 @@ function renderMarket(){
           }
           rowsHtml += `<tr>
             <td>${escapeHtml(r.empresa)}</td>
-            <td>S/ ${(r.sueldoBase||0).toLocaleString('es-PE')}</td>
-            <td>S/ ${(r.recargoConsumo||0).toLocaleString('es-PE')}</td>
             <td class="amount">S/ ${total.toLocaleString('es-PE')}</td>
+            <td class="market-col">${ref.min != null ? `S/ ${ref.min.toLocaleString('es-PE')} – ${ref.max.toLocaleString('es-PE')}` : '—'}</td>
             <td>${tag}</td>
           </tr>`;
         });
     }
 
+    // Promedio de los registros de este puesto
+    const totales = records.map(r => r.sueldoTotal != null ? r.sueldoTotal : (r.sueldoBase||0));
+    const promedio = totales.length ? Math.round(totales.reduce((a,b)=>a+b,0)/totales.length) : null;
+
     html += `
       <div class="puesto-block">
         <h3>${escapeHtml(puesto)}</h3>
-        <div class="market-range">${ref.min != null ? `Referencial LRU: S/ ${ref.min.toLocaleString('es-PE')} – S/ ${ref.max.toLocaleString('es-PE')} (total desdoblado)` : 'Sin referencial definido'}</div>
+
+        <div class="resumen-compara">
+          <div class="resumen-col">
+            <div class="resumen-label">Tu promedio registrado</div>
+            <div class="resumen-valor">${promedio != null ? 'S/ ' + promedio.toLocaleString('es-PE') : 'Sin datos'}</div>
+          </div>
+          <div class="resumen-flecha">vs.</div>
+          <div class="resumen-col">
+            <div class="resumen-label">Mercado (referencial LRU)</div>
+            <div class="resumen-valor gold">${ref.min != null ? `S/ ${ref.min.toLocaleString('es-PE')} – ${ref.max.toLocaleString('es-PE')}` : 'Sin referencial'}</div>
+          </div>
+        </div>
+
+        <table class="records">
+          <tr><th>Empresa</th><th>Sueldo total</th><th>Mercado (referencial)</th><th>vs. Mercado</th></tr>
+          ${rowsHtml}
+        </table>
+
         <div class="propuesta-box">
-          <label>Propuesta final:</label>
+          <label>Sueldo sugerido final:</label>
           <input type="number" class="propuesta-input" data-puesto="${escapeHtml(puesto)}" placeholder="S/ 0" value="${propuestas[puesto] != null ? propuestas[puesto] : ''}">
           <button class="save-propuesta" data-puesto="${escapeHtml(puesto)}">Guardar propuesta</button>
           <span class="propuesta-saved" id="propuesta-saved-${puesto.replace(/[^a-zA-Z0-9]/g,'_')}">${propuestas[puesto] != null ? '✓ Guardada: S/ ' + propuestas[puesto].toLocaleString('es-PE') : ''}</span>
         </div>
-        <table class="records">
-          <tr><th>Empresa</th><th>Sueldo base</th><th>Recargo consumo</th><th>Total</th><th>vs. Mercado</th></tr>
-          ${rowsHtml}
-        </table>
       </div>`;
   });
 
@@ -883,10 +934,12 @@ function exportarReporte(){
     const records = allRecords.filter(r=>r.puesto === puesto);
     const ref = getReferencial(puesto);
     const propuesta = propuestas[puesto];
+    const totales = records.map(r => r.sueldoTotal != null ? r.sueldoTotal : (r.sueldoBase||0));
+    const promedio = totales.length ? Math.round(totales.reduce((a,b)=>a+b,0)/totales.length) : null;
 
     let filas = '';
     if(records.length === 0){
-      filas = `<tr><td colspan="5" class="vacio">Sin registros</td></tr>`;
+      filas = `<tr><td colspan="4" class="vacio">Sin registros</td></tr>`;
     } else {
       records
         .sort((a,b)=>(b.sueldoTotal||0)-(a.sueldoTotal||0))
@@ -900,9 +953,8 @@ function exportarReporte(){
           }
           filas += `<tr>
             <td>${escapeHtml(r.empresa)}</td>
-            <td>S/ ${(r.sueldoBase||0).toLocaleString('es-PE')}</td>
-            <td>S/ ${(r.recargoConsumo||0).toLocaleString('es-PE')}</td>
             <td class="rtotal">S/ ${total.toLocaleString('es-PE')}</td>
+            <td>${ref.min != null ? `S/ ${ref.min.toLocaleString('es-PE')} – ${ref.max.toLocaleString('es-PE')}` : '—'}</td>
             <td>${tag}</td>
           </tr>`;
         });
@@ -911,10 +963,14 @@ function exportarReporte(){
     bloques += `
       <div class="rblock">
         <h2>${escapeHtml(puesto)}</h2>
-        <div class="rrange">${ref.min != null ? `Escala remunerativa de mercado: S/ ${ref.min.toLocaleString('es-PE')} – S/ ${ref.max.toLocaleString('es-PE')}` : 'Sin referencial definido'}</div>
-        ${propuesta != null ? `<div class="rpropuesta">Propuesta final LRU: <b>S/ ${propuesta.toLocaleString('es-PE')}</b></div>` : ''}
+        <div class="rcompara">
+          <div class="rcol"><div class="rclabel">Tu promedio registrado</div><div class="rcvalor">${promedio != null ? 'S/ ' + promedio.toLocaleString('es-PE') : 'Sin datos'}</div></div>
+          <div class="rcvs">vs.</div>
+          <div class="rcol"><div class="rclabel">Mercado (referencial LRU)</div><div class="rcvalor gold">${ref.min != null ? `S/ ${ref.min.toLocaleString('es-PE')} – ${ref.max.toLocaleString('es-PE')}` : 'Sin referencial'}</div></div>
+        </div>
+        ${propuesta != null ? `<div class="rpropuesta">Sueldo sugerido final: <b>S/ ${propuesta.toLocaleString('es-PE')}</b></div>` : ''}
         <table class="rtable">
-          <tr><th>Empresa</th><th>Sueldo base</th><th>Recargo consumo</th><th>Total</th><th>vs. Mercado</th></tr>
+          <tr><th>Empresa</th><th>Sueldo total</th><th>Mercado (referencial)</th><th>vs. Mercado</th></tr>
           ${filas}
         </table>
       </div>`;
@@ -936,6 +992,12 @@ function exportarReporte(){
     .rblock{margin-bottom:22px;border-top:1px solid #0D0D0D;padding-top:12px;}
     .rblock h2{font-family:'Playfair Display',Georgia,serif;font-size:14pt;color:#0B2545;margin-bottom:4px;}
     .rrange{font-size:10pt;color:#A9824F;font-weight:600;margin-bottom:4px;}
+    .rcompara{display:flex;align-items:center;gap:16px;background:#F0EBDD;border:1px solid #DCD2B8;padding:10px 14px;margin-bottom:10px;}
+    .rcol{flex:1;}
+    .rclabel{font-size:8pt;text-transform:uppercase;letter-spacing:.4px;color:#6B6558;font-weight:600;margin-bottom:3px;}
+    .rcvalor{font-family:'Playfair Display',Georgia,serif;font-size:15pt;font-weight:600;color:#0B2545;}
+    .rcvalor.gold{color:#A9824F;}
+    .rcvs{font-size:9pt;font-weight:700;color:#6B6558;text-transform:uppercase;}
     .rpropuesta{font-size:10.5pt;color:#0D0D0D;background:#F2E7CE;border:1px solid #C8A96B;padding:6px 10px;display:inline-block;margin-bottom:10px;}
     table.rtable{width:100%;border-collapse:collapse;font-size:9pt;margin-top:6px;}
     table.rtable th{background:#0D0D0D;color:#C8A96B;text-align:left;padding:6px 8px;font-size:8pt;text-transform:uppercase;letter-spacing:.4px;}
